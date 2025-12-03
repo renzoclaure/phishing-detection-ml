@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phishing Detector - URL Analysis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=2">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="header-top">
+                <img src="{{ url_for('static', filename='ipca_logo.png') }}" 
+                     alt="IPCA logo" 
+                     class="logo">
+        
+                <div>
+                    <h1 class="title">
+                        <span class="icon">🛡️</span>
+                        Phishing Detector
+                    </h1>
+                    <p class="subtitle">AI for Cybersecurity</p>
+                    <p class="subtitle">Student: Renzo Claure A. 33790</p>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="card">
+                <form id="urlForm" class="url-form">
+                    <div class="input-group">
+                        <label for="urlInput" class="label">Enter the URL to analyze:</label>
+                        <div class="input-wrapper">
+                            <input 
+                                type="text" 
+                                id="urlInput" 
+                                name="url" 
+                                class="url-input" 
+                                placeholder="https://example.com"
+                                required
+                                autocomplete="off"
+                            >
+                            <button type="submit" class="submit-btn" id="submitBtn">
+                                <span class="btn-text">Analyze</span>
+                                <span class="btn-loader" style="display: none;">⏳</span>
+                            </button>
+                        </div>
+                        <small class="input-hint">Make sure to include the protocol (http:// or https://)</small>
+                    </div>
+                </form>
+
+                <!-- Result -->
+                <div id="resultContainer" class="result-container" style="display: none;">
+                    <div class="result-header">
+                        <h2 class="result-title">Analysis Result</h2>
+                    </div>
+                    
+                    <div id="resultContent" class="result-content">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+
+                <!-- Error -->
+                <div id="errorContainer" class="error-container" style="display: none;">
+                    <div class="error-icon">⚠️</div>
+                    <div class="error-message" id="errorMessage"></div>
+                </div>
+            </div>
+
+            <!-- Examples -->
+            <div class="examples-card">
+                <h3 class="examples-title">💡 Examples to try:</h3>
+                <div class="examples-list">
+                    <button class="example-btn" data-url="https://www.google.com">Google (Legitimate)</button>
+                    <button class="example-btn" data-url="https://www.github.com">GitHub (Legitimate)</button>
+                    <button class="example-btn" data-url="https://www.microsoft.com">Microsoft (Legitimate)</button>
+                </div>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <p>Powered by Machine Learning | XGBoost Classifier</p>
+        </footer>
+    </div>
+
+    <script>
+        const form = document.getElementById('urlForm');
+        const urlInput = document.getElementById('urlInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const resultContent = document.getElementById('resultContent');
+        const errorContainer = document.getElementById('errorContainer');
+        const errorMessage = document.getElementById('errorMessage');
+        const btnText = submitBtn.querySelector('.btn-text');
+        const btnLoader = submitBtn.querySelector('.btn-loader');
+
+        // Handle form submission
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const url = urlInput.value.trim();
+            
+            if (!url) {
+                showError('Please enter a URL');
+                return;
+            }
+
+            // Basic validation
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                showError('URL must start with http:// or https://');
+                return;
+            }
+
+            await analyzeUrl(url);
+        });
+
+        // Handle example buttons
+        document.querySelectorAll('.example-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const url = btn.getAttribute('data-url');
+                urlInput.value = url;
+                analyzeUrl(url);
+            });
+        });
+
+        async function analyzeUrl(url) {
+            // Show loading
+            setLoading(true);
+            hideError();
+            hideResult();
+
+            try {
+                const formData = new FormData();
+                formData.append('url', url);
+
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error analyzing the URL');
+                }
+
+                if (data.success) {
+                    showResult(data);
+                } else {
+                    throw new Error(data.error || 'Unknown error');
+                }
+
+            } catch (error) {
+                showError(error.message || 'Error connecting to the server');
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        function showResult(data) {
+            const isPhishing = data.is_phishing;
+            const confidence = data.confidence;
+            const label = data.prediction;
+            
+            // Determine class and colors
+            const resultClass = isPhishing ? 'phishing' : 'legitimate';
+            const icon = isPhishing ? '🚨' : '✅';
+            const bgColor = isPhishing ? '#fee2e2' : '#d1fae5';
+            const borderColor = isPhishing ? '#ef4444' : '#10b981';
+            const textColor = isPhishing ? '#991b1b' : '#065f46';
+
+            resultContent.innerHTML = `
+                <div class="prediction-box ${resultClass}" style="background-color: ${bgColor}; border-color: ${borderColor};">
+                    <div class="prediction-icon">${icon}</div>
+                    <div class="prediction-info">
+                        <h3 class="prediction-label" style="color: ${textColor};">${label}</h3>
+                        <p class="prediction-confidence">Confidence: <strong>${confidence}%</strong></p>
+                    </div>
+                </div>
+
+                <div class="url-analyzed">
+                    <strong>URL analyzed:</strong>
+                    <code class="url-code">${escapeHtml(data.url)}</code>
+                </div>
+
+                <details class="features-details">
+                    <summary class="features-summary">
+                        View extracted features (${data.features_extracted} features)
+                    </summary>
+                    <div class="features-grid">
+                        ${Object.entries(data.features).map(([key, value]) => `
+                            <div class="feature-item">
+                                <span class="feature-name">${escapeHtml(key)}</span>
+                                <span class="feature-value ${value === 1 ? 'active' : 'inactive'}">
+                                    ${value === 1 ? '✓' : '✗'}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </details>
+            `;
+
+            resultContainer.style.display = 'block';
+            resultContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorContainer.style.display = 'block';
+            errorContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function hideError() {
+            errorContainer.style.display = 'none';
+        }
+
+        function hideResult() {
+            resultContainer.style.display = 'none';
+        }
+
+        function setLoading(loading) {
+            if (loading) {
+                submitBtn.disabled = true;
+                btnText.style.display = 'none';
+                btnLoader.style.display = 'inline';
+                urlInput.disabled = true;
+            } else {
+                submitBtn.disabled = false;
+                btnText.style.display = 'inline';
+                btnLoader.style.display = 'none';
+                urlInput.disabled = false;
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Auto-focus
+        urlInput.focus();
+    </script>
+</body>
+</html>

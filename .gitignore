@@ -1,0 +1,18 @@
+# Python compilados
+__pycache__/
+*.pyc
+
+# Archivos de Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Entornos virtuales (MUY IMPORTANTE ignorar esto)
+phishing-ml-env/
+env/
+venv/
+.env
+
+# Configuración de VSCode
+.vscode/
+
+# Archivos de sistema
+.DS_Store
